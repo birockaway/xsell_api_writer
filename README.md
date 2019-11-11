@@ -1,0 +1,1 @@
+# keboola_component_template
