@@ -160,7 +160,7 @@ def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
             if result_count % logging_item_batch_size == 0:
                 print(
                     '{} items sent to api. {} errors, {} successes'.
-                    format(input_count, error_result_count, input_count - error_result_count)
+                    format(result_count, error_result_count, result_count - error_result_count)
                 )
 
     # when everything is done, we put one message into the final queue to indicate that the processing is finished
@@ -189,7 +189,7 @@ def main():
     auth_token = cfg_pars['#bearer_token']
     logging_item_batch_size = cfg_pars['logging_item_batch_size']
 
-    print('Loading configuration loaded.')
+    print('Configuration loaded.')
 
     if len(cfg_intabs) != 1:
         print(
@@ -228,7 +228,7 @@ def main():
 
             input_notification_queue.put(INPUT_TOKEN)
 
-    input_notification_queue.put(MESSAGE_COMMUNICATION_OVER)
+        input_notification_queue.put(MESSAGE_COMMUNICATION_OVER)
 
     result_checker_thread.join()
     final_result = final_result_queue.get()
