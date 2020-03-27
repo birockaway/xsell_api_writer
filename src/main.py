@@ -1,10 +1,10 @@
 
 import sys
 import os
-import logging
 import csv
 import time
 import requests
+import traceback
 from concurrent import futures
 import queue
 import functools
@@ -44,9 +44,10 @@ def data_producer(input_file_path: str, max_entries_per_second: int):
 
                     row_data = list(entry_.values())
                     if len(row_data) > 1:
-                        logging.error(
+                        print(
                             'The input table must have only one column, {} detected. Offending row: {}'.
-                            format(len(row_data), row_data)
+                            format(len(row_data), row_data),
+                            file=sys.stderr
                         )
                         raise ValueError
 
@@ -71,16 +72,18 @@ def request_callback(result_queue: queue.Queue, request_future: futures.Future):
     try:
         exc = request_future.exception()
         if exc:
-            logging.exception(exc)
+            print(exc, file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
         else:
             res = request_future.result()
             if res.status_code // 100 == 2:
                 # if the execution ended up here, everything is ok
                 result = MESSAGE_OK
             else:
-                logging.error('Request failed. Status code: {}, text: {}'.format(res.status_code, res.text))
+                print('Request failed. Status code: {}, text: {}'.format(res.status_code, res.text), file=sys.stderr)
     except Exception as exc:
-        logging.exception(exc)
+        print(exc, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
 
     # if result is None, something must have gone wrong and send error message; otherwise send the OK message
     result_queue.put(result or MESSAGE_ERROR)
@@ -139,13 +142,13 @@ def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
                 input_count_final = True
 
                 if input_count % logging_item_batch_size == 0:
-                    logging.info('Finished reading the input table. {} items read in total'.format(input_count))
+                    print('Finished reading the input table. {} items read in total'.format(input_count))
             else:
                 # the queue contained an indicator of another input
                 input_count += 1
 
                 if input_count % logging_item_batch_size == 0:
-                    logging.info('{} items read from the input table'.format(input_count))
+                    print('{} items read from the input table'.format(input_count))
 
         if partial_res_message != EMPTY_QUEUE_INDICATOR:
             # the queue with results from api requests contained new data
@@ -155,7 +158,7 @@ def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
                 error_result_count += 1
 
             if result_count % logging_item_batch_size == 0:
-                logging.info(
+                print(
                     '{} items sent to api. {} errors, {} successes'.
                     format(input_count, error_result_count, input_count - error_result_count)
                 )
@@ -167,20 +170,15 @@ def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
         format(error_result_count, input_count - error_result_count)
     if error_result_count:
         # something failed, log result as error and send error message to the final result queue
-        log_method = logging.error
+        print(finished_log_msg, file=sys.stderr)
         final_result_queue.put(MESSAGE_ERROR)
     else:
         # processed finished ok, log the result as info and send an ok message to the final result queue
-        log_method = logging.info
+        print(finished_log_msg)
         final_result_queue.put(MESSAGE_OK)
-
-    # log the result as error or info, depending on the presence of errors
-    log_method(finished_log_msg)
 
 
 def main():
-    logging.basicConfig(format='%(name)s, %(asctime)s, %(levelname)s, %(message)s', level=logging.INFO)
-
     data_dir = os.environ.get('KBC_DATADIR', '/data/')
 
     cfg = kbc_docker.Config(data_dir=data_dir)
@@ -191,10 +189,13 @@ def main():
     auth_token = cfg_pars['#bearer_token']
     logging_item_batch_size = cfg_pars['logging_item_batch_size']
 
-    logging.info('Loading configuration loaded.')
+    print('Loading configuration loaded.')
 
     if len(cfg_intabs) != 1:
-        logging.error("Exactly one input table expected! {} are present".format(len(cfg_intabs)))
+        print(
+            "Exactly one input table expected! {} are present".format(len(cfg_intabs)),
+            file=sys.stderr
+        )
         sys.exit(1)
 
     input_table_path = cfg_intabs[0]['full_path']
