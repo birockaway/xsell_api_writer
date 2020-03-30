@@ -219,7 +219,7 @@ def main():
                             'Content-Type': 'application/json',
                             'Authorization': 'Bearer {}'.format(auth_token)
                         },
-                    data=item_
+                    data=item_.encode('utf-8')
                 )
 
             ftr.add_done_callback(
