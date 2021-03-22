@@ -21,7 +21,7 @@ MESSAGE_ERROR = 'ERROR'
 MESSAGE_OK = 'OK'
 MESSAGE_COMMUNICATION_OVER = 'OUT'
 EMPTY_QUEUE_INDICATOR = '__EMPTY__'
-API_WORKERS_COUNT = 5
+API_WORKERS_COUNT = 10
 
 setup_logger()
 logger = logging.getLogger()
@@ -196,7 +196,8 @@ def main():
 
     requests_session = requests.Session()
     with requests_session as session:
-        retries = Retry(total=3, backoff_factor=1, status_forcelist=[104])  # retrying on connection reset status
+        # retrying on connection reset status  and internal server error
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[104, 500])
         session.mount('http://', HTTPAdapter(max_retries=retries))
         session.mount('https://', HTTPAdapter(max_retries=retries))
 
