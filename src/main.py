@@ -196,7 +196,8 @@ def main():
 
     requests_session = requests.Session()
     with requests_session as session:
-        retries = Retry(total=3, backoff_factor=1, status_forcelist=[104]) # retrying on connection reset status
+        # retrying on connection reset status and server error
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[104, 500])
         session.mount('http://', HTTPAdapter(max_retries=retries))
         session.mount('https://', HTTPAdapter(max_retries=retries))
 
