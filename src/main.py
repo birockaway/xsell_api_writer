@@ -208,7 +208,7 @@ def main():
 
         with futures.ThreadPoolExecutor(max_workers=API_WORKERS_COUNT) as extr:
             for item_ in data_producer(input_table_path):
-                while (input_notification_queue.qsize() - result_notification_queue.qsize()) > 500:
+                while input_notification_queue.qsize() > 500:
                     time.sleep(0.1)
                 ftr = extr.submit(
                     session.put,
