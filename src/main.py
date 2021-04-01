@@ -22,6 +22,7 @@ MESSAGE_OK = 'OK'
 MESSAGE_COMMUNICATION_OVER = 'OUT'
 EMPTY_QUEUE_INDICATOR = '__EMPTY__'
 API_WORKERS_COUNT = 5
+MAX_WAITING_REQUESTS = 100
 
 setup_logger()
 logger = logging.getLogger()
@@ -83,7 +84,8 @@ def request_callback(result_queue: queue.Queue, request_future: futures.Future) 
 def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
                    logging_item_batch_size: int,
                    final_result_queue: queue.Queue,
-                   allowed_errors_share: float) -> None:
+                   allowed_errors_share: float,
+                   semaphore: threading.BoundedSemaphore) -> None:
     """
     The task of this function is to collect messages about input reads and api call results, regularly log progress
     and detect the completion of the whole read-send process. After receiving the message about the input reading
@@ -104,6 +106,7 @@ def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
     messages for all the input messages to indicate that the whole process is over.
     :param allowed_errors_share: A parameter specifying what share of unsuccessful requests is acceptable. If the
     share of errors is above this value, the final result is an error indicator.
+    :param semaphore threading semaphore used for limiting number of requests waiting for response.
     """
 
     def _get_from_queue(qu: queue.Queue) -> str:
@@ -143,6 +146,7 @@ def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
             # the queue with results from api requests contained new data
 
             result_count += 1
+            semaphore.release()
             if partial_res_message == MESSAGE_ERROR:
                 error_result_count += 1
 
@@ -191,6 +195,7 @@ def main():
     input_notification_queue = queue.Queue()
     result_notification_queue = queue.Queue()
     final_result_queue = queue.Queue()
+    threading_semaphore = threading.BoundedSemaphore(MAX_WAITING_REQUESTS)
 
     requests_session = requests.Session()
     with requests_session as session:
@@ -202,7 +207,7 @@ def main():
         result_checker_thread = threading.Thread(
             target=result_checker,
             args=(input_notification_queue, result_notification_queue, logging_item_batch_size,
-                  final_result_queue, allowed_errors_share)
+                  final_result_queue, allowed_errors_share, threading_semaphore)
         )
         result_checker_thread.start()
 
@@ -223,6 +228,7 @@ def main():
                 )
 
                 input_notification_queue.put(INPUT_TOKEN)
+                threading_semaphore.acquire()
 
             input_notification_queue.put(MESSAGE_COMMUNICATION_OVER)
 
