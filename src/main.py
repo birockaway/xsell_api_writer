@@ -21,7 +21,7 @@ MESSAGE_ERROR = 'ERROR'
 MESSAGE_OK = 'OK'
 MESSAGE_COMMUNICATION_OVER = 'OUT'
 EMPTY_QUEUE_INDICATOR = '__EMPTY__'
-API_WORKERS_COUNT = 2
+API_WORKERS_COUNT = 5
 
 setup_logger()
 logger = logging.getLogger()
@@ -208,6 +208,8 @@ def main():
 
         with futures.ThreadPoolExecutor(max_workers=API_WORKERS_COUNT) as extr:
             for item_ in data_producer(input_table_path):
+                while (input_notification_queue.qsize() - result_notification_queue.qsize()) > 500:
+                    time.sleep(0.1)
                 ftr = extr.submit(
                     session.put,
                     url=api_endpoint,
