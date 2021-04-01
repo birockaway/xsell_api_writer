@@ -21,7 +21,7 @@ MESSAGE_ERROR = 'ERROR'
 MESSAGE_OK = 'OK'
 MESSAGE_COMMUNICATION_OVER = 'OUT'
 EMPTY_QUEUE_INDICATOR = '__EMPTY__'
-API_WORKERS_COUNT = 5
+API_WORKERS_COUNT = 3
 
 setup_logger()
 logger = logging.getLogger()
@@ -131,9 +131,7 @@ def result_checker(input_queue: queue.Queue, partial_results_queue: queue.Queue,
             if input_message == MESSAGE_COMMUNICATION_OVER:
                 # all inputs have been sent and no more are coming, the input count is now final
                 input_count_final = True
-
-                if input_count % logging_item_batch_size == 0:
-                    logger.info('Finished reading the input table. %s items read in total', input_count)
+                logger.info('Finished reading the input table. %s items read in total', input_count)
             else:
                 # the queue contained an indicator of another input
                 input_count += 1
